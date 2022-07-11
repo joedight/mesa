@@ -163,6 +163,30 @@ class UserParam:
     def value(self, value):
         self._value = value
 
+    def __getattr__(self, name):
+        return self._value.name
+
+    def __add__(self, *args): return self._value.__add__(*args)
+    def __sub__(self, *args): return self._value.__sub__(*args)
+    def __mul__(self, *args): return self._value.__mul__(*args)
+    def __radd__(self, *args): return self._value.__radd__(*args)
+    def __rsub__(self, *args): return self._value.__rsub__(*args)
+    def __rmul__(self, *args): return self._value.__rmul__(*args)
+    def __abs__(self, *args): return self._value.__abs__(*args)
+
+    def __lt__(self, other): return self._value.__lt__(type(self._value)(other))
+    def __le__(self, other): return self._value.__le__(type(self._value)(other))
+    def __eq__(self, other): return self._value.__eq__(type(self._value)(other))
+    def __ne__(self, other): return self._value.__ne__(type(self._value)(other))
+    def __gt__(self, other): return self._value.__gt__(type(self._value)(other))
+    def __ge__(self, other): return self._value.__ge__(type(self._value)(other))
+
+    def __hash__(self, *args): return self._value.__hash__(*args)
+
+    def __int__(self, *args): return self._value.__int__(*args)
+    def __index__(self, *args): return self._value.__index__(*args)
+    def __str__(self, *args): return self._value.__str__(*args)
+    def __bool__(self, *args): return self._value.__bool__(*args)
 
 class Slider(UserParam):
     """
