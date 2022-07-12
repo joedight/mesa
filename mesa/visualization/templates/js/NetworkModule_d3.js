@@ -34,6 +34,29 @@ const NetworkModule = function (svg_width, svg_height) {
     d3.zoomIdentity.translate(width / 2, height / 2)
   );
 
+  for (const [suffix, marker_size] of [["", 3], ["large", 5], ["xl", 6]]) {
+    for (const start of [false, true]) {
+      const name = (start ? "start" : "end") + suffix;
+      svg
+        .append("svg:defs")
+        .selectAll("marker")
+        .data([name])
+        .enter()
+        .append("svg:marker")
+        .attr("id", String)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 15)
+        .attr("refY", 0.5)
+        .attr("orient", (start ? "auto-start-reverse" : "auto"))
+        .append("svg:path")
+        .attr("d", "M0,-5L10,0L0,5");
+
+      d3.select(`#${name}`)
+        .attr("markerWidth", marker_size)
+        .attr("markerHeight", marker_size);
+    }
+  }
+
   const links = g.append("g").attr("class", "links");
 
   const nodes = g.append("g").attr("class", "nodes");
@@ -83,6 +106,18 @@ const NetworkModule = function (svg_width, svg_height) {
       })
       .attr("stroke", function (d) {
         return d.color;
+      })
+      .attr("marker-end", function (d) {
+        if (d.directed === "forwards" || d.directed === "both")
+          return "url(#end" + (d.marker_size ?? "") + ")";
+        else
+          return "";
+      })
+      .attr("marker-start", function (d) {
+        if (d.directed === "backwards" || d.directed === "both")
+          return "url(#start" + (d.marker_size ?? "") + ")";
+        else
+          return "";
       });
 
     links.selectAll("line").data(graph.edges).exit().remove();
