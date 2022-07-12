@@ -84,7 +84,21 @@ const NetworkModule = function (svg_width, svg_height) {
       simulation.tick();
     }
 
-    links.selectAll("line").data(graph.edges).enter().append("line");
+    links
+	.selectAll("line")
+	.data(graph.edges)
+	.enter()
+	.append("line")
+	.on("mouseover", function (event, d) {
+	tooltip.transition().duration(200).style("opacity", 0.9);
+	tooltip
+	  .html(d.tooltip)
+	  .style("left", event.pageX + "px")
+	  .style("top", event.pageY + "px");
+	})
+	.on("mouseout", function () {
+	tooltip.transition().duration(500).style("opacity", 0);
+	});
 
     links
       .selectAll("line")
