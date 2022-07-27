@@ -101,6 +101,7 @@ class DataCollector:
         self.model_vars = {}
         self._agent_records = {}
         self.tables = {}
+        self.steps = []
 
         if model_reporters is not None:
             for name, reporter in model_reporters.items():
@@ -125,7 +126,7 @@ class DataCollector:
         if type(reporter) is str:
             reporter = partial(self._getattr, reporter)
         self.model_reporters[name] = reporter
-        self.model_vars[name] = []
+        self.model_vars[name] = {}
 
     def _new_agent_reporter(self, name, reporter):
         """Add a new agent-level reporter to collect.
@@ -175,20 +176,21 @@ class DataCollector:
 
     def collect(self, model):
         """Collect all the data for the given model object."""
+        self.steps.append(model.schedule.steps)
         if self.model_reporters:
 
             for var, reporter in self.model_reporters.items():
                 # Check if Lambda operator
                 if isinstance(reporter, types.LambdaType):
-                    self.model_vars[var].append(reporter(model))
+                    self.model_vars[var][model.schedule.steps] = reporter(model)
                 # Check if model attribute
                 elif isinstance(reporter, partial):
-                    self.model_vars[var].append(reporter(model))
+                    self.model_vars[var][model.schedule.steps] = reporter(model)
                 # Check if function with arguments
                 elif isinstance(reporter, list):
-                    self.model_vars[var].append(reporter[0](*reporter[1]))
+                    self.model_vars[var][model.schedule.steps] = reporter[0](*reporter[1])
                 else:
-                    self.model_vars[var].append(self._reporter_decorator(reporter))
+                    self.model_vars[var][model.schedule.steps] = self._reporter_decorator(reporter)
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
