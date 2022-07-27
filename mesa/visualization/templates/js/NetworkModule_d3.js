@@ -136,11 +136,11 @@ const NetworkModule = function (svg_width, svg_height) {
 
     links.selectAll("line").data(graph.edges).exit().remove();
 
-    nodes
-      .selectAll("circle")
+    const node_gs = nodes
+      .selectAll("g")
       .data(graph.nodes)
       .enter()
-      .append("circle")
+      .append("g")
       .on("mouseover", function (event, d) {
         tooltip.transition().duration(200).style("opacity", 0.9);
         tooltip
@@ -152,15 +152,24 @@ const NetworkModule = function (svg_width, svg_height) {
         tooltip.transition().duration(500).style("opacity", 0);
       });
 
+    node_gs
+      .append("circle");
+
+    node_gs
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", "0.35em");
+
+    nodes
+      .selectAll("g")
+      .data(graph.nodes)
+      .attr("transform", function(d) {
+        return `translate(${d.x}, ${d.y})`;
+      });
+
     nodes
       .selectAll("circle")
       .data(graph.nodes)
-      .attr("cx", function (d) {
-        return d.x;
-      })
-      .attr("cy", function (d) {
-        return d.y;
-      })
       .attr("r", function (d) {
         return d.size;
       })
@@ -168,7 +177,23 @@ const NetworkModule = function (svg_width, svg_height) {
         return d.color;
       });
 
-    nodes.selectAll("circle").data(graph.nodes).exit().remove();
+    nodes
+      .selectAll("text")
+      .data(graph.nodes)
+      .attr("font-size", "1px")
+      .text(function (d) {
+        return d.text;
+      })
+      .each(function (d) {
+        const bbox = this.getBBox();
+        const pbbox = this.parentNode.getBBox();
+        d.font_scale = Math.min(pbbox.width / bbox.width, pbbox.height / bbox.height);
+      })
+      .attr("font-size", function (d) {
+        return `${d.font_scale}px`;
+      });
+
+    nodes.selectAll("g").data(graph.nodes).exit().remove();
   };
 
   this.reset = () => {};
