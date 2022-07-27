@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 class Agent:
     """Base class for a model agent."""
+    __slots__ = ("unique_id", "model", "pos")
 
     def __init__(self, unique_id: int, model: "Model") -> None:
         """Create a new agent.
@@ -29,8 +30,8 @@ class Agent:
             unique_id (int): A unique numeric identified for the agent
             model: (Model): Instance of the model that contains the agent
         """
-        self.unique_id = unique_id
-        self.model = model
+        self.unique_id: int = unique_id
+        self.model : "Model" = model
         self.pos: Position | None = None
 
     def step(self) -> None:

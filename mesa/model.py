@@ -18,6 +18,14 @@ from typing import Any
 
 class Model:
     """Base class for models."""
+    __slots__ = (
+            "_seed",
+            "random",
+            "running",
+            "schedule",
+            "current_id",
+            "datacollector",
+    )
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Any:
         """Create a new model object and instantiate its RNG automatically."""
