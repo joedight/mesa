@@ -15,6 +15,7 @@ from multiprocessing import Pool, cpu_count
 from warnings import warn
 from typing import (
     Any,
+    Callable,
     Counter,
     Dict,
     Iterable,
@@ -35,12 +36,15 @@ from mesa.model import Model
 def batch_run(
     model_cls: Type[Model],
     parameters: Mapping[str, Union[Any, Iterable[Any]]],
+    iterable_parameters: Mapping[str, Iterable[Any]] = {},
+    constant_parameters: Mapping[str, Any] = {},
     # We still retain the Optional[int] because users may set it to None (i.e. use all CPUs)
     number_processes: Optional[int] = 1,
     iterations: int = 1,
     data_collection_period: int = -1,
     max_steps: int = 1000,
     display_progress: bool = True,
+    parameter_filter: Callable[Mapping[str, Any], bool] = lambda _: True,
 ) -> List[Dict[str, Any]]:
     """Batch run a mesa model with a set of parameter values.
 
@@ -67,7 +71,22 @@ def batch_run(
         [description]
     """
 
-    kwargs_list = _make_model_kwargs(parameters) * iterations
+    iterable_parameters = dict(iterable_parameters)
+    constant_parameters = dict(constant_parameters)
+    for k, v in parameters.items():
+        if isinstance(v, str):
+            constant_parameters[k] = v
+        else:
+            try:
+                iterable_parameters[k] = iter(v)
+            except TypeError:
+                constant_parameters[k] = v
+
+    kwargs_list = list(enumerate(_make_model_kwargs(constant_parameters, iterable_parameters, parameter_filter)))
+    run_list = [
+            (d[0], { "RunId" : i, **d[1] }) for i, d in enumerate(kwargs_list * iterations)
+    ]
+
     process_func = partial(
         _model_run_func,
         model_cls,
@@ -75,40 +94,39 @@ def batch_run(
         data_collection_period=data_collection_period,
     )
 
-    total_iterations = len(kwargs_list)
-    run_counter = count()
+    total_iterations = len(run_list)
 
-    results: List[Dict[str, Any]] = []
+    kwargs_var = []
+    for _, kwargs in kwargs_list:
+        kwargs_var.append({
+            k: kwargs[k] for k in iterable_parameters.keys()
+        })
+
+    results: List[Any] = {
+            "Constant Parameters" : constant_parameters,
+            "Permutations" : [{ "Variable Parameters" : kwargs, "Runs" : [] } for kwargs in kwargs_var]
+    }
 
     with tqdm(total=total_iterations, disable=not display_progress) as pbar:
-        iteration_counter: Counter[Tuple[Any, ...]] = Counter()
-
-        def _fn(paramValues, rawdata):
-            iteration_counter[paramValues] += 1
-            iteration = iteration_counter[paramValues]
-            run_id = next(run_counter)
-            data = []
-            for run_data in rawdata:
-                out = {"RunId": run_id, "iteration": iteration - 1}
-                out.update(run_data)
-                data.append(out)
-            results.extend(data)
+        def _fn(kwargsId, rawdata):
+            results["Permutations"][kwargsId]["Runs"].append(rawdata)
             pbar.update()
 
         if number_processes == 1:
-            for kwargs in kwargs_list:
-                paramValues, rawdata = process_func(kwargs)
-                _fn(paramValues, rawdata)
+            for kwargsId, kwargs in run_list:
+                _, rawdata = process_func((kwargsId, kwargs))
+                _fn(kwargsId, rawdata)
         else:
             with Pool(number_processes) as p:
-                for paramValues, rawdata in p.imap_unordered(process_func, kwargs_list):
-                    _fn(paramValues, rawdata)
+                for kwargsId, rawdata in p.imap_unordered(process_func, run_list):
+                    _fn(kwargsId, rawdata)
 
     return results
 
-
 def _make_model_kwargs(
-    parameters: Mapping[str, Union[Any, Iterable[Any]]]
+    constant_parameters: Mapping[str, Any],
+    iterable_parameters: Mapping[str, Iterable[Any]],
+    parameter_filter: Callable[Mapping[str, Any], bool],
 ) -> List[Dict[str, Any]]:
     """Create model kwargs from parameters dictionary.
 
@@ -122,28 +140,26 @@ def _make_model_kwargs(
     List[Dict[str, Any]]
         A list of all kwargs combinations.
     """
-    parameter_list = []
-    for param, values in parameters.items():
-        if isinstance(values, str):
-            # The values is a single string, so we shouldn't iterate over it.
-            all_values = [(param, values)]
-        else:
-            try:
-                all_values = [(param, value) for value in values]
-            except TypeError:
-                all_values = [(param, values)]
-        parameter_list.append(all_values)
-    all_kwargs = itertools.product(*parameter_list)
-    kwargs_list = [dict(kwargs) for kwargs in all_kwargs]
-    return kwargs_list
+    parameter_list = [ [i] for i in constant_parameters.items() ]
 
+    for param, values in iterable_parameters.items():
+        parameter_list.append([(param, v) for v in values])
+
+    all_kwargs = itertools.product(*parameter_list)
+    kwargs_list = []
+    for kwargs in all_kwargs:
+        d = dict(kwargs)
+        if parameter_filter(d):
+            kwargs_list.append(d)
+
+    return kwargs_list
 
 def _model_run_func(
     model_cls: Type[Model],
-    kwargs: Dict[str, Any],
+    kwargsPairs: Dict[str, Any],
     max_steps: int,
     data_collection_period: int,
-) -> Tuple[Tuple[Any, ...], List[Dict[str, Any]]]:
+) -> Tuple[int, List[Dict[str, Any]]]:
     """Run a single model run and collect model and agent data.
 
     Parameters
@@ -162,32 +178,23 @@ def _model_run_func(
     Tuple[Tuple[Any, ...], List[Dict[str, Any]]]
         Return model_data, agent_data from the reporters
     """
+    kwargsId, kwargs = kwargsPairs
     model = model_cls(**kwargs)
     while model.running and model.schedule.steps <= max_steps:
         model.step()
 
     data = []
 
-    steps = list(range(0, model.schedule.steps, data_collection_period))
-    if not steps or steps[-1] != model.schedule.steps - 1:
-        steps.append(model.schedule.steps - 1)
-
-    for step in steps:
+    for step in model.datacollector.steps:
         model_data, all_agents_data = _collect_data(model, step)
 
-        # If there are agent_reporters, then create an entry for each agent
-        if all_agents_data:
-            stepdata = [
-                {**{"Step": step}, **kwargs, **model_data, **agent_data}
-                for agent_data in all_agents_data
-            ]
-        # If there is only model data, then create a single entry for the step
-        else:
-            stepdata = [{**{"Step": step}, **kwargs, **model_data}]
-        data.extend(stepdata)
+        data.append({
+            "Step": step,
+            "ModelData": model_data,
+            "AgentsData": all_agents_data,
+        })
 
-    return tuple(kwargs.values()), data
-
+    return kwargsId, data
 
 def _collect_data(
     model: Model,
@@ -199,7 +206,7 @@ def _collect_data(
     model_data = {param: values[step] for param, values in dc.model_vars.items()}
 
     all_agents_data = []
-    raw_agent_data = dc._agent_records.get(step, [])
+    raw_agent_data = dc._agent_records[step]
     for data in raw_agent_data:
         agent_dict = {"AgentID": data[1]}
         agent_dict.update(zip(dc.agent_reporters, data[2:]))
