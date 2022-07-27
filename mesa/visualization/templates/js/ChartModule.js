@@ -43,6 +43,11 @@ const ChartModule = function (series, canvas_width, canvas_height) {
 
   const chartOptions = {
     responsive: true,
+    animation : false,
+    normalized: true,
+    spanGroups: true,
+    min: -1.0,
+    max: 1.0,
     tooltips: {
       mode: "index",
       intersect: false,
