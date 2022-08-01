@@ -164,7 +164,7 @@ class UserParam:
         self._value = value
 
     def __getattr__(self, name):
-        return self._value.name
+        return getattr(self._value, name)
 
     def __add__(self, *args): return self._value.__add__(*args)
     def __sub__(self, *args): return self._value.__sub__(*args)

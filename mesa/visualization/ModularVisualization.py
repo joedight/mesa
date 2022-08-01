@@ -121,8 +121,8 @@ CHART_JS_FILE = "external/chart-3.6.1.min.js"
 
 
 def is_user_param(val):
-    return isinstance(val, UserSettableParameter) or issubclass(
-        val.__class__, UserParam
+    return isinstance(val(), UserSettableParameter) or issubclass(
+        val().__class__, UserParam
     )
 
 
@@ -238,9 +238,9 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             # Is the param editable?
             if param in self.application.user_params:
                 if is_user_param(self.application.model_kwargs[param]):
-                    self.application.model_kwargs[param].value = value
+                    self.application.model_kwargs[param].x.value = value
                 else:
-                    self.application.model_kwargs[param] = value
+                    self.application.model_kwargs[param].x = value
 
         else:
             if self.application.verbose:
@@ -323,7 +323,7 @@ class ModularServer(tornado.web.Application):
         result = {}
         for param, val in self.model_kwargs.items():
             if is_user_param(val):
-                result[param] = val.json
+                result[param] = val().json
 
         return result
 
@@ -332,7 +332,7 @@ class ModularServer(tornado.web.Application):
 
         model_params = {}
         for key, val in self.model_kwargs.items():
-            if is_user_param(val) and val.param_type == "static_text":
+            if is_user_param(val) and val().param_type == "static_text":
                 # static_text is never used for setting params
                 continue
             else:
