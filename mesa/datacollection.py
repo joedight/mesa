@@ -195,6 +195,8 @@ class DataCollector:
         if self.agent_reporters:
             agent_records = self._record_agents(model)
             self._agent_records[model.schedule.steps] = list(agent_records)
+        else:
+            self._agent_records[model.schedule.steps] = []
 
     def add_table_row(self, table_name, row, ignore_missing=False):
         """Add a row dictionary to a specific table.
