@@ -188,6 +188,8 @@ class UserParam:
     def __str__(self, *args): return self._value.__str__(*args)
     def __bool__(self, *args): return self._value.__bool__(*args)
 
+    def __iter__(self, *args): return self._value.__iter__(*args)
+
 class Slider(UserParam):
     """
     A number-based slider input with settable increment.
