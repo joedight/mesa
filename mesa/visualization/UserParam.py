@@ -184,9 +184,11 @@ class UserParam:
     def __hash__(self, *args): return self._value.__hash__(*args)
 
     def __int__(self, *args): return self._value.__int__(*args)
+    def __float__(self, *args): return self._value.__float__(*args)
     def __index__(self, *args): return self._value.__index__(*args)
     def __str__(self, *args): return self._value.__str__(*args)
     def __bool__(self, *args): return self._value.__bool__(*args)
+    def __len__(self, *args): return self._value.__len__(*args)
 
     def __iter__(self, *args): return self._value.__iter__(*args)
 

@@ -27,12 +27,6 @@ class Model:
             "datacollector",
     )
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
-        """Create a new model object and instantiate its RNG automatically."""
-        cls._seed = kwargs.get("seed", None)
-        cls.random = random.Random(cls._seed)
-        return object.__new__(cls)
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a new model. Overload this method with the actual code to
         start the model.
@@ -42,6 +36,9 @@ class Model:
             running: a bool indicating if the model should continue running
 
         """
+
+        self._seed = kwargs.get("seed", None)
+        self.random = random.Random(self._seed)
 
         self.running = True
         self.schedule = None
