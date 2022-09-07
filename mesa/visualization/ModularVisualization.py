@@ -121,9 +121,9 @@ CHART_JS_FILE = "external/chart-3.6.1.min.js"
 
 
 def is_user_param(val):
-    return isinstance(val(), UserSettableParameter) or issubclass(
+    return val.is_const() and (isinstance(val(), UserSettableParameter) or issubclass(
         val().__class__, UserParam
-    )
+    ))
 
 
 class VisualizationElement:
